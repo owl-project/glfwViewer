@@ -147,7 +147,6 @@ namespace owl {
       easy.lens.radius = 0.f;
       easy.lens.du     = camera.frame.vx;
       easy.lens.dv     = camera.frame.vy;
-
       const float minFocalDistance
         = max(computeStableEpsilon(camera.position),
               computeStableEpsilon(camera.frame.vx));
@@ -200,20 +199,23 @@ namespace owl {
         (&cuDisplayTexture, fbTexture, GL_TEXTURE_2D, 0);
 
       // if (firstResize || !firstResize && resourceSharingSuccessful) {
-#if OWL_FORCE_SLOW_DISPLAY
+#if 1 || OWL_FORCE_SLOW_DISPLAY
+      // don't use PBO for now, it only creates troubles when running
+      // on machines with more than one GPU (like laptops with
+      // built-in graphics and real GPU :-/
       bool forceSlowDisplay = true;
-# pragma message("forcing slow display in owl viewer!")
+// # pragma message("forcing slow display in owl viewer!")
 #else
       bool forceSlowDisplay = false;
 #endif
       if (rc != cudaSuccess || forceSlowDisplay) {
-        std::cout << OWL_TERMINAL_RED
-                  << "Warning: Could not do CUDA graphics resource sharing "
-                  << "for the display buffer texture ("
-                  << cudaGetErrorString(cudaGetLastError())
-                  << ")... falling back to slower path"
-                  << OWL_TERMINAL_DEFAULT
-                  << std::endl;
+        // std::cout << OWL_TERMINAL_RED
+        //           << "Warning: Could not do CUDA graphics resource sharing "
+        //           << "for the display buffer texture ("
+        //           << cudaGetErrorString(cudaGetLastError())
+        //           << ")... falling back to slower path"
+        //           << OWL_TERMINAL_DEFAULT
+        //           << std::endl;
         resourceSharingSuccessful = false;
         if (cuDisplayTexture) {
           cudaGraphicsUnregisterResource(cuDisplayTexture);
