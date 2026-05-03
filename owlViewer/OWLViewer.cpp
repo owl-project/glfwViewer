@@ -199,7 +199,7 @@ namespace owl {
         (&cuDisplayTexture, fbTexture, GL_TEXTURE_2D, 0);
 
       // if (firstResize || !firstResize && resourceSharingSuccessful) {
-#if 1 || OWL_FORCE_SLOW_DISPLAY
+#if OWL_FORCE_SLOW_DISPLAY
       // don't use PBO for now, it only creates troubles when running
       // on machines with more than one GPU (like laptops with
       // built-in graphics and real GPU :-/
@@ -294,6 +294,7 @@ namespace owl {
       if (resourceSharingSuccessful) {
         OWL_CUDA_CHECK(cudaGraphicsUnmapResources(1, &cuDisplayTexture));
       }
+      glFlush();
     }
 
     /*! re-computes the 'camera' from the 'cameracontrol', and notify
