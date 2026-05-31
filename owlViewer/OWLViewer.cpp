@@ -175,8 +175,10 @@ namespace owl {
     void OWLViewer::resize(const vec2i &newSize)
     {
       glfwMakeContextCurrent(handle);
-      if (fbPointer)
+      if (fbPointer) {
         cudaFree(fbPointer);
+        fbPointer = 0;
+      }
       cudaMallocManaged(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
 
       fbSize = newSize;
@@ -191,7 +193,9 @@ namespace owl {
       }
 
       GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
-      GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, newSize.x, newSize.y, 0, GL_RGBA,
+      GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                            newSize.x, newSize.y,
+                            0, GL_RGBA,
                             GL_UNSIGNED_BYTE, nullptr));
 
       // We need to re-register when resizing the texture
@@ -221,6 +225,8 @@ namespace owl {
           cudaGraphicsUnregisterResource(cuDisplayTexture);
           cuDisplayTexture = 0;
         }
+        // 'eat' the error we just found - we're not going to use that texture
+        cudaGetLastError();
       } else {
         resourceSharingSuccessful = true;
       }
