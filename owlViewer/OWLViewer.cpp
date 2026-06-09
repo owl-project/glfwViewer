@@ -25,6 +25,11 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION 1
 #include "stb/stb_image_write.h"
 
+// iw, 6/2026: apparently some windows drivers have issues with cuda
+// managed memory, so let's force this to use host pinned memory fo
+// the frame buffer.
+#define FORCE_HOST_PINNED_MEMORY 1
+
 namespace owl {
   namespace viewer {
 
@@ -86,6 +91,7 @@ namespace owl {
 
     void initGLFW()
     {
+      cudaFree(0);
       static bool alreadyInitialized = false;
       if (alreadyInitialized) return;
       if (!glfwInit())
@@ -175,21 +181,33 @@ namespace owl {
     void OWLViewer::resize(const vec2i &newSize)
     {
       glfwMakeContextCurrent(handle);
+      glfwFocusWindow(handle);
       if (fbPointer) {
+#if FORCE_HOST_PINNED_MEMORY
+        cudaFreeHost(fbPointer);
+#else
         cudaFree(fbPointer);
+#endif
         fbPointer = 0;
       }
+#if FORCE_HOST_PINNED_MEMORY
+      cudaMallocHost(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
+#else
       cudaMallocManaged(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
+#endif
+      cudaDeviceSynchronize();
+      PRINT((int*)fbPointer);
+      
 
       fbSize = newSize;
       if (fbTexture == 0) {
         GL_CHECK(glGenTextures(1, &fbTexture));
-      }
-      else {
-        if (cuDisplayTexture) {
-          cudaGraphicsUnregisterResource(cuDisplayTexture);
-          cuDisplayTexture = 0;
-        }
+	// }
+	// else {
+	//   if (cuDisplayTexture) {
+	//     cudaGraphicsUnregisterResource(cuDisplayTexture);
+	//     cuDisplayTexture = 0;
+	//   }
       }
 
       GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
@@ -199,37 +217,38 @@ namespace owl {
                             GL_UNSIGNED_BYTE, nullptr));
 
       // We need to re-register when resizing the texture
-      cudaError_t rc = cudaGraphicsGLRegisterImage
-        (&cuDisplayTexture, fbTexture, GL_TEXTURE_2D, 0);
+      // cudaError_t rc = cudaGraphicsGLRegisterImage
+	
+      //   (&cuDisplayTexture, fbTexture, GL_TEXTURE_2D, 0);
 
       // if (firstResize || !firstResize && resourceSharingSuccessful) {
-#if OWL_FORCE_SLOW_DISPLAY
-      // don't use PBO for now, it only creates troubles when running
-      // on machines with more than one GPU (like laptops with
-      // built-in graphics and real GPU :-/
-      bool forceSlowDisplay = true;
-// # pragma message("forcing slow display in owl viewer!")
-#else
-      bool forceSlowDisplay = false;
-#endif
-      if (rc != cudaSuccess || forceSlowDisplay) {
-        // std::cout << OWL_TERMINAL_RED
-        //           << "Warning: Could not do CUDA graphics resource sharing "
-        //           << "for the display buffer texture ("
-        //           << cudaGetErrorString(cudaGetLastError())
-        //           << ")... falling back to slower path"
-        //           << OWL_TERMINAL_DEFAULT
-        //           << std::endl;
-        resourceSharingSuccessful = false;
-        if (cuDisplayTexture) {
-          cudaGraphicsUnregisterResource(cuDisplayTexture);
-          cuDisplayTexture = 0;
-        }
-        // 'eat' the error we just found - we're not going to use that texture
-        cudaGetLastError();
-      } else {
-        resourceSharingSuccessful = true;
-      }
+      // #if OWL_FORCE_SLOW_DISPLAY
+      //       // don't use PBO for now, it only creates troubles when running
+      //       // on machines with more than one GPU (like laptops with
+      //       // built-in graphics and real GPU :-/
+      //       bool forceSlowDisplay = true;
+      // // # pragma message("forcing slow display in owl viewer!")
+      // #else
+      //       bool forceSlowDisplay = false;
+      // #endif
+      //       if (rc != cudaSuccess || forceSlowDisplay) {
+      //         // std::cout << OWL_TERMINAL_RED
+      //         //           << "Warning: Could not do CUDA graphics resource sharing "
+      //         //           << "for the display buffer texture ("
+      //         //           << cudaGetErrorString(cudaGetLastError())
+      //         //           << ")... falling back to slower path"
+      //         //           << OWL_TERMINAL_DEFAULT
+      //         //           << std::endl;
+      //         resourceSharingSuccessful = false;
+      //         if (cuDisplayTexture) {
+      //           cudaGraphicsUnregisterResource(cuDisplayTexture);
+      //           cuDisplayTexture = 0;
+      //         }
+      //         // 'eat' the error we just found - we're not going to use that texture
+      //         cudaGetLastError();
+      //       } else {
+      //         resourceSharingSuccessful = true;
+      //       }
       setAspect(fbSize.x/float(fbSize.y));
     }
 
@@ -239,29 +258,36 @@ namespace owl {
     void OWLViewer::draw()
     {
       glfwMakeContextCurrent(handle);
-      if (resourceSharingSuccessful) {
-        OWL_CUDA_CHECK(cudaGraphicsMapResources(1, &cuDisplayTexture));
+      // if (resourceSharingSuccessful) {
+      //   OWL_CUDA_CHECK(cudaGraphicsMapResources(1, &cuDisplayTexture));
 
-        cudaArray_t array;
-        OWL_CUDA_CHECK(cudaGraphicsSubResourceGetMappedArray(&array, cuDisplayTexture, 0, 0));
-        {
-          cudaMemcpy2DToArray(array,
-                              0,
-                              0,
-                              reinterpret_cast<const void *>(fbPointer),
-                              fbSize.x * sizeof(uint32_t),
-                              fbSize.x * sizeof(uint32_t),
-                              fbSize.y,
-                              cudaMemcpyDeviceToDevice);
-        }
-      } else {
-        GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
-        glEnable(GL_TEXTURE_2D);
-        GL_CHECK(glTexSubImage2D(GL_TEXTURE_2D,0,
-                                 0,0,
-                                 fbSize.x, fbSize.y,
-                                 GL_RGBA, GL_UNSIGNED_BYTE, fbPointer));
-      }
+      //   cudaArray_t array;
+      //   OWL_CUDA_CHECK(cudaGraphicsSubResourceGetMappedArray(&array, cuDisplayTexture, 0, 0));
+      //   {
+      //     cudaMemcpy2DToArray(array,
+      //                         0,
+      //                         0,
+      //                         reinterpret_cast<const void *>(fbPointer),
+      //                         fbSize.x * sizeof(uint32_t),
+      //                         fbSize.x * sizeof(uint32_t),
+      //                         fbSize.y,
+      //                         cudaMemcpyDeviceToDevice);
+      //   }
+      // } else {
+      glEnable(GL_TEXTURE_2D);
+      GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
+      cudaDeviceSynchronize();
+      // GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
+      // GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+      //                       newSize.x, newSize.y,
+      //                       0, GL_RGBA,
+      //                       GL_UNSIGNED_BYTE, nullptr));
+      GL_CHECK(glTexSubImage2D(GL_TEXTURE_2D,0,
+			       0,0,
+			       fbSize.x, fbSize.y,
+			       GL_RGBA, GL_UNSIGNED_BYTE, fbPointer));
+
+      cudaDeviceSynchronize();
 
       glDisable(GL_LIGHTING);
       glColor3f(1, 1, 1);
@@ -284,22 +310,22 @@ namespace owl {
 
       glBegin(GL_QUADS);
       {
-        glTexCoord2f(0.f, 0.f);
-        glVertex3f(0.f, 0.f, 0.f);
+	glTexCoord2f(0.f, 0.f);
+	glVertex3f(0.f, 0.f, 0.f);
 
-        glTexCoord2f(0.f, 1.f);
-        glVertex3f(0.f, (float)fbSize.y, 0.f);
+	glTexCoord2f(0.f, 1.f);
+	glVertex3f(0.f, (float)fbSize.y, 0.f);
 
-        glTexCoord2f(1.f, 1.f);
-        glVertex3f((float)fbSize.x, (float)fbSize.y, 0.f);
+	glTexCoord2f(1.f, 1.f);
+	glVertex3f((float)fbSize.x, (float)fbSize.y, 0.f);
 
-        glTexCoord2f(1.f, 0.f);
-        glVertex3f((float)fbSize.x, 0.f, 0.f);
+	glTexCoord2f(1.f, 0.f);
+	glVertex3f((float)fbSize.x, 0.f, 0.f);
       }
       glEnd();
-      if (resourceSharingSuccessful) {
-        OWL_CUDA_CHECK(cudaGraphicsUnmapResources(1, &cuDisplayTexture));
-      }
+      // if (resourceSharingSuccessful) {
+      //   OWL_CUDA_CHECK(cudaGraphicsUnmapResources(1, &cuDisplayTexture));
+      // }
       glFlush();
     }
 
@@ -313,9 +339,9 @@ namespace owl {
     }
 
     void OWLViewer::enableInspectMode(RotateMode rm,
-                                      const box3f &validPoiRange,
-                                      float minPoiDist,
-                                      float maxPoiDist)
+				      const box3f &validPoiRange,
+				      float minPoiDist,
+				      float maxPoiDist)
     {
       inspectModeManipulator
         = std::make_shared<CameraInspectMode>
@@ -434,7 +460,8 @@ namespace owl {
       glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
       glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
       glfwWindowHint(GLFW_VISIBLE, visible);
-
+      glfwWindowHint(GLFW_FOCUSED, GL_TRUE);
+ 
       handle = glfwCreateWindow(initWindowSize.x, initWindowSize.y,
                                 title.c_str(), NULL, NULL);
       if (!handle) {
@@ -569,13 +596,14 @@ namespace owl {
       int width, height;
       glfwGetFramebufferSize(handle, &width, &height);
       resize(vec2i(width,height));
-
       glfwSetFramebufferSizeCallback(handle, glfwindow_reshape_cb);
       glfwSetMouseButtonCallback(handle, glfwindow_mouseButton_cb);
       glfwSetKeyCallback(handle, glfwindow_key_cb);
       glfwSetCharCallback(handle, glfwindow_char_cb);
       glfwSetCursorPosCallback(handle, glfwindow_mouseMotion_cb);
 
+      glfwFocusWindow (handle);
+	
       while (!glfwWindowShouldClose(handle) && keepgoing()) {
         static double lastCameraUpdate = -1.f;
         if (camera.lastModified != lastCameraUpdate) {

@@ -249,7 +249,7 @@ namespace owl {
       vec2i    fbSize { 0 };
 
       GLuint   fbTexture  {0};
-      cudaGraphicsResource_t cuDisplayTexture { 0 };
+      // cudaGraphicsResource_t cuDisplayTexture { 0 };
       uint32_t *fbPointer { nullptr };
       
       /*! the glfw window handle */
@@ -259,7 +259,7 @@ namespace owl {
       /*! tracks whether we could successfully do cuda resource
           binding to the GL display texture; if not, we'll have to
           fall back to a slower path with glTexImage */
-      bool resourceSharingSuccessful;
+      // bool resourceSharingSuccessful;
     };
 
   } // ::owl::viewer
