@@ -196,8 +196,6 @@ namespace owl {
       cudaMallocManaged(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
 #endif
       cudaDeviceSynchronize();
-      PRINT((int*)fbPointer);
-      
 
       fbSize = newSize;
       if (fbTexture == 0) {
