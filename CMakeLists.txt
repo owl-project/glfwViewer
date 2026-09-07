@@ -36,4 +36,51 @@ if (NOT(TARGET stb_image))
 endif()
 target_link_libraries(owlViewer-config INTERFACE stb_image)
 
-add_subdirectory(owlViewer)
+set(OpenGL_GL_PREFERENCE "LEGACY")
+find_package(OpenGL REQUIRED OPTIONAL_COMPONENTS OpenGL)
+
+if (NOT (TARGET owl::owl))
+  message(FATAL_ERROR "Your CMakefile needs to include OWL before including owlGLFWViewer")
+endif()
+  
+add_library(owlGLFWViewer STATIC
+  
+  owlViewer/OWLViewer.h
+  owlViewer/OWLViewer.cpp
+
+  owlViewer/ColorMaps.h
+  owlViewer/ColorMaps.cpp
+
+  owlViewer/XFEditor.h
+  owlViewer/XFEditor.cpp
+  
+  owlViewer/Camera.h 
+  owlViewer/Camera.cpp
+  
+  owlViewer/InspectMode.h
+  owlViewer/InspectMode.cpp
+  
+  owlViewer/FlyMode.h
+  owlViewer/FlyMode.cpp
+
+  3rdParty/imgui/imgui.cpp
+  3rdParty/imgui/imgui_demo.cpp
+  3rdParty/imgui/imgui_draw.cpp
+  3rdParty/imgui/imgui_tables.cpp
+  3rdParty/imgui/imgui_widgets.cpp
+  3rdParty/imgui/backends/imgui_impl_glfw.cpp
+  3rdParty/imgui/backends/imgui_impl_opengl3.cpp
+)
+
+if(TARGET OpenGL::OpenGL)
+  target_link_libraries(owlGLFWViewer PUBLIC OpenGL::OpenGL)
+else()
+  target_link_libraries(owlGLFWViewer PUBLIC OpenGL::GL)
+endif()
+
+target_link_libraries(owlGLFWViewer
+  PUBLIC
+  owl::owl
+  owlViewer-config
+)
+
