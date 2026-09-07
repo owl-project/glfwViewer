@@ -559,10 +559,8 @@ namespace owl {
       // Check if ImGui wants to capture the mouse
       ImGuiIO& io = ImGui::GetIO();
       if (io.WantCaptureMouse) {
-        std::cout << "glfw button, action " << action << std::endl;
         return; // ImGui handled the input; do not let application logic run
       }
-      // PING; PRINT(button);
   
       gw->mouseButton(button,action,mods);
     }

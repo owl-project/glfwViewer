@@ -64,11 +64,7 @@ namespace owl {
 
       if (lastDragPos.x == -1) {
         lastDragPos = newPos;
-        // return;
       }
-
-      std::cout << "dragging from " << lastDragPos << " .. " << newPos
-                << " button = " << button << std::endl;
 
       int w = colorMap.size()-1;
       int x0 = int(lastDragPos.x*(colorMap.size()-1)+.5f);
@@ -146,7 +142,7 @@ namespace owl {
       cmUpdated = true;
     }
     
-    void XFEditor::run_ui()
+    bool XFEditor::run_ui()
     {
       const ImGuiIO &io = ImGui::GetIO();
     
@@ -218,71 +214,10 @@ namespace owl {
         mouse_pos.y = clamp(mouse_pos.y, 0.f, 1.f);
 
         if (io.MouseDown[0]) {
-          //PRINT(mouse_pos);
           mouseDrag(mouse_pos,0);
-#if 0
-          if (selected_point != (size_t)-1) {
-            alpha_control_pts[selected_point] = mouse_pos;
-
-            // Keep the first and last control points at the edges
-            if (selected_point == 0) {
-              alpha_control_pts[selected_point].x = 0.f;
-            } else if (selected_point == alpha_control_pts.size() - 1) {
-              alpha_control_pts[selected_point].x = 1.f;
-            }
-          } else {
-            auto fnd = std::find_if
-              (alpha_control_pts.begin(), alpha_control_pts.end(),
-               [&](const vec2f &p) {
-                 const vec2f pt_pos = p * view_scale + view_offset;
-                 float dist = (pt_pos - vec2f(clipped_mouse_pos)).length();
-                 return dist <= point_radius;
-               });
-            // No nearby point, we're adding a new one
-            if (fnd == alpha_control_pts.end()) {
-              alpha_control_pts.push_back(mouse_pos);
-            }
-          }
-
-          // Keep alpha control points ordered by x coordinate, update
-          // selected point index to match
-          std::sort(alpha_control_pts.begin(),
-                    alpha_control_pts.end(),
-                    [](const vec2f &a, const vec2f &b) { return a.x < b.x; });
-          if (selected_point != 0 && selected_point != alpha_control_pts.size() - 1) {
-            auto fnd = std::find_if
-              (alpha_control_pts.begin(), alpha_control_pts.end(),
-               [&](const vec2f &p) {
-                 const vec2f pt_pos = p * view_scale + view_offset;
-                 float dist = (pt_pos - vec2f(clipped_mouse_pos)).length();
-                 return dist <= point_radius;
-               });
-            selected_point = std::distance(alpha_control_pts.begin(), fnd);
-          }
-          update_colormap();
-#endif
-          // } else if (ImGui::IsMouseClicked(1)) {
         } else if (ImGui::IsMouseDown(1)) {
           mouseDrag(mouse_pos,1);
-#if 0
-          selected_point = -1;
-          // Find and remove the point
-          auto fnd = std::find_if
-            (alpha_control_pts.begin(), alpha_control_pts.end(),
-             [&](const vec2f &p) {
-               const vec2f pt_pos = p * view_scale + view_offset;
-               float dist = (pt_pos - vec2f(clipped_mouse_pos)).length();
-               return dist <= point_radius;
-             });
-          // We also want to prevent erasing the first and last points
-          if (fnd != alpha_control_pts.end() && fnd != alpha_control_pts.begin() &&
-              fnd != alpha_control_pts.end() - 1) {
-            alpha_control_pts.erase(fnd);
-          }
-          update_colormap();
-#endif
         } else if (ImGui::IsMouseDown(2)) {
-          // } else if (ImGui::IsMouseClicked(2)) {
           mouseDrag(mouse_pos,2);
         } else {
           selected_point = -1;
@@ -293,9 +228,10 @@ namespace owl {
         mouseDragEnd();
       }
       
-      canvas_pos.y += 100;
-      ImGui::SetCursorScreenPos(cvt(canvas_pos));
-      ImGui::Dummy({100,100});
+      // canvas_pos.y += 100;
+      // ImGui::SetCursorScreenPos(cvt(canvas_pos));
+      // ImGui::Dummy({100,100});
+      return cmUpdated;
     }
     
   }

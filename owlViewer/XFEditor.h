@@ -25,16 +25,17 @@ namespace owl {
     struct XFEditor {
       XFEditor();
       /* the imgui draw function for this widget */
-      void run_ui();
+      bool run_ui();
 
       /*! set a completely new color map, including both color and
           alpha (eg, when loading one from file */
-      void setColorAndAlpha(const ColorMap &cm);
+      void setColorAndAlpha(const vec4f *cm, size_t cmSize);
       /*! set only the color scheme, but keep existing alpha values */
-      void setColorOnly(const ColorMap &cm);
+      void setColorOnly(const vec4f *cm, size_t cmSize);
       void changeColorScheme(int libraryColorMapID);
-      
-      ColorMap getColorMap() const;
+                       
+      ColorMap getColorMap() 
+      { cmUpdated = false; return colorMap; }
       
       // gets set to true every time the color map gets modified; gets
       // set to false every time it is retried via getColorMap();
