@@ -22,17 +22,31 @@ if (NOT (TARGET owl::owl))
 endif()
   
 add_library(owlGLFWViewer STATIC
-  # add header files, so visual studio will properly show them as part of the solution
   OWLViewer.h
-  Camera.h
-  InspectMode.h
-  FlyMode.h
-
-  # the actual source files
   OWLViewer.cpp
+
+  ColorMaps.h
+  ColorMaps.cpp
+
+  XFEditor.h
+  XFEditor.cpp
+  
+  Camera.h 
   Camera.cpp
+  
+  InspectMode.h
   InspectMode.cpp
+  
+  FlyMode.h
   FlyMode.cpp
+
+  ../3rdParty/imgui/imgui.cpp
+  ../3rdParty/imgui/imgui_demo.cpp
+  ../3rdParty/imgui/imgui_draw.cpp
+  ../3rdParty/imgui/imgui_tables.cpp
+  ../3rdParty/imgui/imgui_widgets.cpp
+  ../3rdParty/imgui/backends/imgui_impl_glfw.cpp
+  ../3rdParty/imgui/backends/imgui_impl_opengl3.cpp
 )
 
 if(TARGET OpenGL::OpenGL)

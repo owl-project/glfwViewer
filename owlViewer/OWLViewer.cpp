@@ -18,7 +18,7 @@
 #include "Camera.h"
 #include "InspectMode.h"
 #include "FlyMode.h"
-#include "owl/helper/cuda.h"
+// #include "owl/helper/cuda.h"
 #include <sstream>
 
 // eventually to go into 'apps/'
@@ -35,18 +35,17 @@ namespace owl {
 
     inline const char* getGLErrorString( GLenum error )
     {
-      switch( error )
-        {
-        case GL_NO_ERROR:            return "No error";
-        case GL_INVALID_ENUM:        return "Invalid enum";
-        case GL_INVALID_VALUE:       return "Invalid value";
-        case GL_INVALID_OPERATION:   return "Invalid operation";
-          //case GL_STACK_OVERFLOW:      return "Stack overflow";
-          //case GL_STACK_UNDERFLOW:     return "Stack underflow";
-        case GL_OUT_OF_MEMORY:       return "Out of memory";
-          //case GL_TABLE_TOO_LARGE:     return "Table too large";
-        default:                     return "Unknown GL error";
-        }
+      switch( error ) {
+      case GL_NO_ERROR:            return "No error";
+      case GL_INVALID_ENUM:        return "Invalid enum";
+      case GL_INVALID_VALUE:       return "Invalid value";
+      case GL_INVALID_OPERATION:   return "Invalid operation";
+        //case GL_STACK_OVERFLOW:      return "Stack overflow";
+        //case GL_STACK_UNDERFLOW:     return "Stack underflow";
+      case GL_OUT_OF_MEMORY:       return "Out of memory";
+        //case GL_TABLE_TOO_LARGE:     return "Table too large";
+      default:                     return "Unknown GL error";
+      }
     }
 
 #define DO_GL_CHECK
@@ -91,7 +90,7 @@ namespace owl {
 
     void initGLFW()
     {
-      cudaFree(0);
+      // cudaFree(0);
       static bool alreadyInitialized = false;
       if (alreadyInitialized) return;
       if (!glfwInit())
@@ -183,19 +182,21 @@ namespace owl {
       glfwMakeContextCurrent(handle);
       glfwFocusWindow(handle);
       if (fbPointer) {
-#if FORCE_HOST_PINNED_MEMORY
-        cudaFreeHost(fbPointer);
-#else
-        cudaFree(fbPointer);
-#endif
+// #if FORCE_HOST_PINNED_MEMORY
+//         cudaFreeHost(fbPointer);
+// #else
+//         cudaFree(fbPointer);
+// #endif
+        delete[] fbPointer;
         fbPointer = 0;
       }
-#if FORCE_HOST_PINNED_MEMORY
-      cudaMallocHost(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
-#else
-      cudaMallocManaged(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
-#endif
-      cudaDeviceSynchronize();
+      fbPointer = new uint32_t[newSize.x*newSize.y];
+// #if FORCE_HOST_PINNED_MEMORY
+//       cudaMallocHost(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
+// #else
+//       cudaMallocManaged(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
+// #endif
+//       cudaDeviceSynchronize();
 
       fbSize = newSize;
       if (fbTexture == 0) {
@@ -256,36 +257,15 @@ namespace owl {
     void OWLViewer::draw()
     {
       glfwMakeContextCurrent(handle);
-      // if (resourceSharingSuccessful) {
-      //   OWL_CUDA_CHECK(cudaGraphicsMapResources(1, &cuDisplayTexture));
-
-      //   cudaArray_t array;
-      //   OWL_CUDA_CHECK(cudaGraphicsSubResourceGetMappedArray(&array, cuDisplayTexture, 0, 0));
-      //   {
-      //     cudaMemcpy2DToArray(array,
-      //                         0,
-      //                         0,
-      //                         reinterpret_cast<const void *>(fbPointer),
-      //                         fbSize.x * sizeof(uint32_t),
-      //                         fbSize.x * sizeof(uint32_t),
-      //                         fbSize.y,
-      //                         cudaMemcpyDeviceToDevice);
-      //   }
-      // } else {
       glEnable(GL_TEXTURE_2D);
       GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
-      cudaDeviceSynchronize();
-      // GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
-      // GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-      //                       newSize.x, newSize.y,
-      //                       0, GL_RGBA,
-      //                       GL_UNSIGNED_BYTE, nullptr));
+      // cudaDeviceSynchronize();
       GL_CHECK(glTexSubImage2D(GL_TEXTURE_2D,0,
 			       0,0,
 			       fbSize.x, fbSize.y,
 			       GL_RGBA, GL_UNSIGNED_BYTE, fbPointer));
 
-      cudaDeviceSynchronize();
+      // cudaDeviceSynchronize();
 
       glDisable(GL_LIGHTING);
       glColor3f(1, 1, 1);
@@ -321,9 +301,6 @@ namespace owl {
 	glVertex3f((float)fbSize.x, 0.f, 0.f);
       }
       glEnd();
-      // if (resourceSharingSuccessful) {
-      //   OWL_CUDA_CHECK(cudaGraphicsUnmapResources(1, &cuDisplayTexture));
-      // }
       glFlush();
     }
 
@@ -385,21 +362,21 @@ namespace owl {
     }
 
     /*! mouse got dragged with left button pressedn, by 'delta'
-        pixels, at last position where */
+      pixels, at last position where */
     void OWLViewer::mouseDragCenter(const vec2i &where, const vec2i &delta)
     {
       if (cameraManipulator) cameraManipulator->mouseDragCenter(where,delta);
     }
 
     /*! mouse got dragged with left button pressedn, by 'delta'
-        pixels, at last position where */
+      pixels, at last position where */
     void OWLViewer::mouseDragRight (const vec2i &where, const vec2i &delta)
     {
       if (cameraManipulator) cameraManipulator->mouseDragRight(where,delta);
     }
 
     /*! mouse button got either pressed or released at given
-        location */
+      location */
     void OWLViewer::mouseButtonLeft  (const vec2i &where, bool pressed)
     {
       if (cameraManipulator) cameraManipulator->mouseButtonLeft(where,pressed);
@@ -460,6 +437,35 @@ namespace owl {
       glfwWindowHint(GLFW_VISIBLE, visible);
       glfwWindowHint(GLFW_FOCUSED, GL_TRUE);
  
+      // Select GL version + let the backend select a GLSL version
+      const char* glsl_version = nullptr;
+#if defined(IMGUI_IMPL_OPENGL_ES2)
+      // GL ES 2.0 + GLSL 100 (WebGL 1.0)
+      glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+      glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+      glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#elif defined(IMGUI_IMPL_OPENGL_ES3)
+      // GL ES 3.0 + GLSL 300 es (WebGL 2.0)
+      glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+      glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+      glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#elif defined(__APPLE__)
+      // GL 3.2 + generally GLSL 150
+      glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+      glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+      glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+      glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
+#else
+      // GL 3.0 + generally GLSL 130
+      glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+      glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+      //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+      //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+#endif
+
+      // Create window with graphics context
+      float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor()); // Valid on GLFW 3.3+ only
+
       handle = glfwCreateWindow(initWindowSize.x, initWindowSize.y,
                                 title.c_str(), NULL, NULL);
       if (!handle) {
@@ -470,6 +476,32 @@ namespace owl {
       glfwSetWindowUserPointer(handle, this);
       glfwMakeContextCurrent(handle);
       glfwSwapInterval( (enableVsync) ? 1 : 0 );
+
+      // Setup Dear ImGui context
+      IMGUI_CHECKVERSION();
+      ImGui::CreateContext();
+      ImGuiIO& io = ImGui::GetIO(); (void)io;
+      io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+      io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+      // Setup Dear ImGui style
+      ImGui::StyleColorsDark();
+      //ImGui::StyleColorsLight();
+
+      // Setup scaling
+      ImGuiStyle& style = ImGui::GetStyle();
+      style.ScaleAllSizes(main_scale);        // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
+      style.FontScaleDpi = main_scale;        // Set initial font scale. (in docking branch: using io.ConfigDpiScaleFonts=true automatically overrides this for every window depending on the current monitor)
+
+      // Setup Platform/Renderer backends
+      ImGui_ImplGlfw_InitForOpenGL(handle, false);
+      // ImGui_ImplGlfw_InitForOpenGL(window, true);
+      // #ifdef __EMSCRIPTEN__
+      //   ImGui_ImplGlfw_InstallEmscriptenCallbacks(window, "#canvas");
+      // #endif
+      ImGui_ImplOpenGL3_Init(glsl_version);
+
+      
     }
 
 
@@ -488,6 +520,7 @@ namespace owl {
       OWLViewer *gw = static_cast<OWLViewer*>(glfwGetWindowUserPointer(window));
       assert(gw);
       gw->key(key,gw->getMousePos());
+
     }
 
     /*! callback for a key press */
@@ -520,6 +553,17 @@ namespace owl {
     {
       OWLViewer *gw = static_cast<OWLViewer*>(glfwGetWindowUserPointer(window));
       assert(gw);
+      
+      ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+      
+      // Check if ImGui wants to capture the mouse
+      ImGuiIO& io = ImGui::GetIO();
+      if (io.WantCaptureMouse) {
+        std::cout << "glfw button, action " << action << std::endl;
+        return; // ImGui handled the input; do not let application logic run
+      }
+      // PING; PRINT(button);
+  
       gw->mouseButton(button,action,mods);
     }
 
@@ -609,13 +653,26 @@ namespace owl {
           lastCameraUpdate = camera.lastModified;
         }
         render();
-        draw();
 
         glfwSwapBuffers(handle);
         glfwPollEvents();
+
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        runImgui();
+        ImGui::Render();
+        draw();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
       }
 
+      ImGui_ImplOpenGL3_Shutdown();
+      ImGui_ImplGlfw_Shutdown();
+      ImGui::DestroyContext();
+      
       glfwDestroyWindow(handle);
+      
       glfwTerminate();
     }
 

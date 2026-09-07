@@ -16,6 +16,14 @@
 
 #pragma once
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#if defined(IMGUI_IMPL_OPENGL_ES2)
+#include <GLES2/gl2.h>
+#endif
+#include <GLFW/glfw3.h> // Will drag system OpenGL headers
+
 #include "GLFW/glfw3.h"
 #ifdef WIN32
 #include <windows.h>
@@ -89,14 +97,10 @@ namespace owl {
 
       OWLViewer(const std::string &title = "OWL Sample Viewer",
                 const vec2i &initWindowSize=vec2i(1200,800),
-                      bool visible=true,
-                      bool enableVsync=true
-                // ,
-                // const vec3f &cameraInitFrom = vec3f(0,0,-1),
-                // const vec3f &cameraInitAt   = vec3f(0,0,0),
-                // const vec3f &cameraInitUp   = vec3f(0,1,0),
-                // const float worldScale      = 1.f
-                );
+                bool visible=true,
+                bool enableVsync=true);
+
+      virtual void runImgui() {  }
       
       /*! window notifies us that we got resized */     
       virtual void resize(const vec2i &newSize);

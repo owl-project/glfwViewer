@@ -21,12 +21,15 @@ project(OWL_GLFWViewer)
 add_library(owlViewer-config INTERFACE)
 target_include_directories(owlViewer-config INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}
+  ${CMAKE_CURRENT_LIST_DIR}/3rdParty/imgui
+  ${CMAKE_CURRENT_LIST_DIR}/3rdParty/imgui/backends
 )
 
 if (NOT(TARGET glfw_static))
   add_subdirectory(3rdParty/glfw)
 endif()
-target_link_libraries(owlViewer-config INTERFACE glfw_static)
+target_link_libraries(owlViewer-config INTERFACE glfw)
+#target_link_libraries(owlViewer-config INTERFACE glfw_static)
 
 if (NOT(TARGET stb_image))
   add_subdirectory(3rdParty/stb_image)
