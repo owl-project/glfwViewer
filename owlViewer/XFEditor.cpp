@@ -163,21 +163,24 @@ namespace owl {
         }
         ImGui::EndCombo();
       }
+      ImVec2 savedPos = ImGui::GetCursorStartPos();
 
       vec2f canvas_size = cvt(ImGui::GetContentRegionAvail());
       vec2f canvas_pos = cvt(ImGui::GetCursorScreenPos());
-      canvas_size.y -= 20;
 #if 1
       // canvas_size.y = canvas_size.x * 2 / 3;
       canvas_size.y = std::min(canvas_size.y,
                                canvas_size.x / 2);
 #endif
+      canvas_size.y -= 20;
 
       const float point_radius = 10.f;
 
       ImDrawList *draw_list = ImGui::GetWindowDrawList();
+#if 0
       draw_list->PushClipRect(cvt(canvas_pos),
                               cvt(canvas_pos + canvas_size));
+#endif
 
       const ImVec2 view_scale(canvas_size.x, -canvas_size.y);
       const ImVec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y);
@@ -227,10 +230,17 @@ namespace owl {
         //      selected_point = -1;
         mouseDragEnd();
       }
-      
-      // canvas_pos.y += 100;
+
+      // printf("saved %lf %lf\n",savedPos.x,savedPos.y);
+      // printf("canvassize %lf %lf\n",canvas_size.x,canvas_size.y);
+      savedPos.y += (canvas_size.y+30);
+      // canvas_pos.y += canvas_size.y;//100;
+      // printf("saved %lf %lf\n",savedPos.x,savedPos.y);
+      // ImGui::SetCursorPos(savedPos);
       // ImGui::SetCursorScreenPos(cvt(canvas_pos));
-      // ImGui::Dummy({100,100});
+      // PRINT(canvas_pos);
+      ImGui::Dummy({100,10});
+      // ImGui::Text("foo");
       return cmUpdated;
     }
     
