@@ -25,7 +25,8 @@ target_include_directories(owlViewer-config INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/3rdParty/imgui/backends
 )
 
-if (NOT(TARGET glfw_static))
+find_package(glfw3 3.3)
+if (NOT(TARGET glfw))
   add_subdirectory(3rdParty/glfw)
 endif()
 target_link_libraries(owlViewer-config INTERFACE glfw)
