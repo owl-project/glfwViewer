@@ -14,36 +14,3 @@
 # limitations under the License.                                           #
 # ======================================================================== #
 
-set(OpenGL_GL_PREFERENCE "LEGACY")
-find_package(OpenGL REQUIRED OPTIONAL_COMPONENTS OpenGL)
-
-if (NOT (TARGET owl::owl))
-  message(FATAL_ERROR "Your CMakefile needs to include OWL before including owlGLFWViewer")
-endif()
-  
-add_library(owlGLFWViewer STATIC
-  # add header files, so visual studio will properly show them as part of the solution
-  OWLViewer.h
-  Camera.h
-  InspectMode.h
-  FlyMode.h
-
-  # the actual source files
-  OWLViewer.cpp
-  Camera.cpp
-  InspectMode.cpp
-  FlyMode.cpp
-)
-
-if(TARGET OpenGL::OpenGL)
-  target_link_libraries(owlGLFWViewer PUBLIC OpenGL::OpenGL)
-else()
-  target_link_libraries(owlGLFWViewer PUBLIC OpenGL::GL)
-endif()
-
-target_link_libraries(owlGLFWViewer
-  PUBLIC
-  owl::owl
-  owlViewer-config
-)
-
