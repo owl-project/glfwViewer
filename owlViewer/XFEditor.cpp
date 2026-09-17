@@ -142,6 +142,28 @@ namespace owl {
       cmUpdated = true;
     }
     
+    /*! set a completely new color map, including both color and
+      alpha (eg, when loading one from file */
+    void XFEditor::setColorAndAlpha(const vec4f *cm, size_t cmSize)
+    {
+      if (colorMap.size() != cmSize) colorMap.resize(cmSize);
+      for (int i=0;i<cmSize;i++)
+        colorMap[i] = cm[i];
+      updateTexture();
+      cmUpdated = true;
+    }
+    
+    /*! set only the color scheme, but keep existing alpha values */
+    void XFEditor::setColorOnly(const vec4f *cm, size_t cmSize)
+    {
+      if (cmSize != colorMap.size()) 
+        colorMap = colorMap.resampledTo(cmSize);
+      for (int i=0;i<cmSize;i++) 
+        (vec3f&)colorMap[i] = (const vec3f&)cm[i];
+      updateTexture();
+      cmUpdated = true;
+    }
+    
     bool XFEditor::run_ui()
     {
       const ImGuiIO &io = ImGui::GetIO();
