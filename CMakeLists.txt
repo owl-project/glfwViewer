@@ -40,7 +40,7 @@ target_link_libraries(owlViewer-config INTERFACE stb_image)
 set(OpenGL_GL_PREFERENCE "LEGACY")
 find_package(OpenGL REQUIRED OPTIONAL_COMPONENTS OpenGL)
 
-if (NOT (TARGET owl::owl))
+if (NOT (TARGET owl::owl_static))
   message(FATAL_ERROR "Your CMakefile needs to include OWL before including owlGLFWViewer")
 endif()
   
@@ -81,7 +81,7 @@ endif()
 
 target_link_libraries(owlGLFWViewer
   PUBLIC
-  owl::owl
+  owl::owl_static
   owlViewer-config
 )
 
