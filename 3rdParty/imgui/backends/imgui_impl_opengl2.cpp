@@ -4,6 +4,7 @@
 // Implemented features:
 //  [X] Renderer: User texture binding. Use 'GLuint' OpenGL texture as texture identifier. Read the FAQ about ImTextureID/ImTextureRef!
 //  [X] Renderer: Texture updates support for dynamic font atlas (ImGuiBackendFlags_RendererHasTextures).
+//  [X] Renderer: Multi-viewport support (multiple windows). Enable with 'io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable'.
 // Missing features or Issues:
 //  [ ] Renderer: Large meshes support (64k+ vertices) even with 16-bit indices (ImGuiBackendFlags_RendererHasVtxOffset).
 //  [ ] Renderer: Use of DrawCallback_SetSamplerLinear, DrawCallback_SetSamplerNearest is emulated by poking to glTexParameter(), as legacy OpenGL doesn't have glBindSampler().
@@ -26,6 +27,9 @@
 
 // CHANGELOG
 // (minor and older changes stripped away, please see git history for details)
+//  2026-XX-XX: Platform: Added support for multiple windows via the ImGuiPlatformIO interface.
+//  2026-09-17: OpenGL: Added support for platform_io.DrawCallback_SetSamplerFromTex. (#9378)
+//  2026-09-07: OpenGL: Round framebuffer dimensions to the nearest integer instead of truncating them. (#9538, 9515, #8628)
 //  2026-07-15: OpenGL: Backup and restore GL_UNPACK_ROW_LENGTH and GL_UNPACK_ALIGNMENT in UpdateTexture() to avoid corrupting caller GL state. (#8802, #9473)
 //  2026-04-23: OpenGL: Added support for standard draw callbacks (in platform_io): DrawCallback_ResetRenderState, DrawCallback_SetSamplerLinear, DrawCallback_SetSamplerNearest. (#9378)
 //  2026-03-12: OpenGL: Fixed invalid assert in ImGui_ImplOpenGL3_UpdateTexture() if ImTextureID_Invalid is defined to be != 0, which became the default since 2026-03-12. (#9295)
@@ -102,6 +106,10 @@ static ImGui_ImplOpenGL2_Data* ImGui_ImplOpenGL2_GetBackendData()
     return ImGui::GetCurrentContext() ? (ImGui_ImplOpenGL2_Data*)ImGui::GetIO().BackendRendererUserData : nullptr;
 }
 
+// Forward Declarations
+static void ImGui_ImplOpenGL2_InitMultiViewportSupport();
+static void ImGui_ImplOpenGL2_ShutdownMultiViewportSupport();
+
 // Functions
 void    ImGui_ImplOpenGL2_NewFrame()
 {
@@ -131,6 +139,8 @@ static void ImGui_ImplOpenGL2_SetupRenderState(ImDrawData* draw_data, int fb_wid
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glShadeModel(GL_SMOOTH);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+    bd->UseTexParameterToSetSampler = false;
     bd->NextSampler = GL_LINEAR;
 
     // If you are using this code with non-legacy OpenGL header/contexts (which you should not, prefer using imgui_impl_opengl3.cpp!!),
@@ -157,9 +167,13 @@ static void ImGui_ImplOpenGL2_SetupRenderState(ImDrawData* draw_data, int fb_wid
 }
 
 // Draw callbacks
-static void ImGui_ImplOpenGL2_DrawCallback_ResetRenderState(const ImDrawList*, const ImDrawCmd*)    {} // Intentionally empty. Used as an identifier for rendering loop to call its code. Simpler to implement this way.
-static void ImGui_ImplOpenGL2_DrawCallback_SetSamplerLinear(const ImDrawList*, const ImDrawCmd*)    { ImGui_ImplOpenGL2_Data* bd = ImGui_ImplOpenGL2_GetBackendData(); bd->UseTexParameterToSetSampler = true; bd->NextSampler = GL_LINEAR; }
-static void ImGui_ImplOpenGL2_DrawCallback_SetSamplerNearest(const ImDrawList*, const ImDrawCmd*)   { ImGui_ImplOpenGL2_Data* bd = ImGui_ImplOpenGL2_GetBackendData(); bd->UseTexParameterToSetSampler = true; bd->NextSampler = GL_NEAREST; }
+// - IMPORTANT: Using DrawCallback_SetSamplerLinear/DrawCallback_SetSamplerNearest will trash glTexParameteri() values for the texture!!
+//   We cannot decently backup/restore that state because glGetTexParameteriv() is slow on many setups.
+// - Using DrawCallback_SetSamplerFromTex will basically instruct the backend to use existing glTexParameteri() values without modifying anything, which is the initial state.
+static void ImGui_ImplOpenGL2_DrawCallback_ResetRenderState(const ImDrawList*, const ImDrawCmd*)  {} // Intentionally empty. Used as an identifier for rendering loop to call its code. Simpler to implement this way.
+static void ImGui_ImplOpenGL2_DrawCallback_SetSamplerLinear(const ImDrawList*, const ImDrawCmd*)  { ImGui_ImplOpenGL2_Data* bd = ImGui_ImplOpenGL2_GetBackendData(); bd->UseTexParameterToSetSampler = true; bd->NextSampler = GL_LINEAR; }
+static void ImGui_ImplOpenGL2_DrawCallback_SetSamplerNearest(const ImDrawList*, const ImDrawCmd*) { ImGui_ImplOpenGL2_Data* bd = ImGui_ImplOpenGL2_GetBackendData(); bd->UseTexParameterToSetSampler = true; bd->NextSampler = GL_NEAREST; }
+static void ImGui_ImplOpenGL2_DrawCallback_SetSamplerFromTex(const ImDrawList*, const ImDrawCmd*) { ImGui_ImplOpenGL2_Data* bd = ImGui_ImplOpenGL2_GetBackendData(); bd->UseTexParameterToSetSampler = false; }
 
 // OpenGL2 Render function.
 // Note that this implementation is little overcomplicated because we are saving/setting up/restoring every OpenGL state explicitly.
@@ -168,8 +182,8 @@ void ImGui_ImplOpenGL2_RenderDrawData(ImDrawData* draw_data)
 {
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
     ImGui_ImplOpenGL2_Data* bd = ImGui_ImplOpenGL2_GetBackendData();
-    int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
-    int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
+    int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x + 0.5f);
+    int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y + 0.5f);
     if (fb_width == 0 || fb_height == 0)
         return;
 
@@ -354,11 +368,15 @@ bool    ImGui_ImplOpenGL2_Init()
     io.BackendRendererUserData = (void*)bd;
     io.BackendRendererName = "imgui_impl_opengl2";
     io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;       // We can honor ImGuiPlatformIO::Textures[] requests during render.
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;      // We can create multi-viewports on the Renderer side (optional)
+
+    ImGui_ImplOpenGL2_InitMultiViewportSupport();
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     platform_io.DrawCallback_ResetRenderState = ImGui_ImplOpenGL2_DrawCallback_ResetRenderState;
     platform_io.DrawCallback_SetSamplerLinear = ImGui_ImplOpenGL2_DrawCallback_SetSamplerLinear;
     platform_io.DrawCallback_SetSamplerNearest = ImGui_ImplOpenGL2_DrawCallback_SetSamplerNearest;
+    platform_io.DrawCallback_SetSamplerFromTex = ImGui_ImplOpenGL2_DrawCallback_SetSamplerFromTex;
 
     return true;
 }
@@ -370,13 +388,42 @@ void    ImGui_ImplOpenGL2_Shutdown()
     ImGuiIO& io = ImGui::GetIO();
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
+    ImGui_ImplOpenGL2_ShutdownMultiViewportSupport();
     ImGui_ImplOpenGL2_DestroyDeviceObjects();
 
     io.BackendRendererName = nullptr;
     io.BackendRendererUserData = nullptr;
-    io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasTextures);
+    io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasTextures | ImGuiBackendFlags_RendererHasViewports);
     platform_io.ClearRendererHandlers();
     IM_DELETE(bd);
+}
+
+//--------------------------------------------------------------------------------------------------------
+// MULTI-VIEWPORT / PLATFORM INTERFACE SUPPORT
+// This is an _advanced_ and _optional_ feature, allowing the backend to create and handle multiple viewports simultaneously.
+// If you are new to dear imgui or creating a new binding for dear imgui, it is recommended that you completely ignore this section first..
+//--------------------------------------------------------------------------------------------------------
+
+static void ImGui_ImplOpenGL2_RenderWindow(ImGuiViewport* viewport, void*)
+{
+    if (!(viewport->Flags & ImGuiViewportFlags_NoRendererClear))
+    {
+        ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+    ImGui_ImplOpenGL2_RenderDrawData(viewport->DrawData);
+}
+
+static void ImGui_ImplOpenGL2_InitMultiViewportSupport()
+{
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    platform_io.Renderer_RenderWindow = ImGui_ImplOpenGL2_RenderWindow;
+}
+
+static void ImGui_ImplOpenGL2_ShutdownMultiViewportSupport()
+{
+    ImGui::DestroyPlatformWindows();
 }
 
 //-----------------------------------------------------------------------------

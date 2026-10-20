@@ -100,6 +100,8 @@ namespace owl {
                 bool visible=true,
                 bool enableVsync=true);
 
+      virtual ~OWLViewer() { PING; exit(0); }
+      
       virtual void runImgui() {  }
       
       /*! window notifies us that we got resized */     
@@ -129,6 +131,7 @@ namespace owl {
 
       /*! this gets called when the window determines that the mouse
         got _moved_ to the given position */
+      virtual void ping() { PING; }
       virtual void mouseMotion(const vec2i &newMousePosition);
 
       /*! mouse got dragged with left button pressedn, by 'delta'
@@ -249,8 +252,8 @@ namespace owl {
     protected:
 
     
-      
-      vec2i    fbSize { 0 };
+
+      vec2i    fbSize { 0,0 };
 
       GLuint   fbTexture  {0};
       // cudaGraphicsResource_t cuDisplayTexture { 0 };
@@ -259,6 +262,7 @@ namespace owl {
       /*! the glfw window handle */
       GLFWwindow *handle { nullptr };
       vec2i lastMousePos = { -1,-1 };
+      GLuint uiTexture = (GLuint)-1;
 
       /*! tracks whether we could successfully do cuda resource
           binding to the GL display texture; if not, we'll have to

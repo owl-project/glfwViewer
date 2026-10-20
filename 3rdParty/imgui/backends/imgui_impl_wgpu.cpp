@@ -5,8 +5,10 @@
 // Implemented features:
 //  [X] Renderer: User texture binding. Use 'WGPUTextureView' as ImTextureID. Read the FAQ about ImTextureID/ImTextureRef!
 //  [X] Renderer: Large meshes support (64k+ vertices) even with 16-bit indices (ImGuiBackendFlags_RendererHasVtxOffset).
-//  [X] Renderer: Expose selected render state for draw callbacks to use. Access in '(ImGui_ImplXXXX_RenderState*)GetPlatformIO().Renderer_RenderState'.
 //  [X] Renderer: Texture updates support for dynamic font system (ImGuiBackendFlags_RendererHasTextures).
+//  [X] Renderer: Expose selected render state for draw callbacks to use. Access with ImGui_ImplWGPU_GetRenderState().
+// Missing features or Issues:
+//  [ ] Renderer: Multi-viewport support (multiple windows), useful for desktop.
 
 // Read imgui_impl_wgpu.h about how to use the IMGUI_IMPL_WEBGPU_BACKEND_WGPU or IMGUI_IMPL_WEBGPU_BACKEND_DAWN flags.
 
@@ -20,6 +22,7 @@
 
 // CHANGELOG
 // (minor and older changes stripped away, please see git history for details)
+//  2026-09-07: Round framebuffer dimensions to the nearest integer instead of truncating them. (#9538, 9515, #8628)
 //  2026-08-31: Update to compile with wgpu-native 29.0. (#9377, #9532, #9530)
 //  2026-08-18: Fixed passing non-integer sizes to `wgpuRenderPassEncoderSetViewport() when FramebufferScale is >1.0f. (#9515, #8628)
 //  2026-04-23: Added support for standard draw callbacks (in platform_io): DrawCallback_ResetRenderState, DrawCallback_SetSamplerLinear, DrawCallback_SetSamplerNearest. (#9378)
@@ -126,6 +129,11 @@ struct ImGui_ImplWGPU_Data
 static ImGui_ImplWGPU_Data* ImGui_ImplWGPU_GetBackendData()
 {
     return ImGui::GetCurrentContext() ? (ImGui_ImplWGPU_Data*)ImGui::GetIO().BackendRendererUserData : nullptr;
+}
+
+ImGui_ImplWGPU_RenderState* ImGui_ImplWGPU_GetRenderState()
+{
+    return (ImGui_ImplWGPU_RenderState*)ImGui::GetPlatformIO().Renderer_RenderState;
 }
 
 //-----------------------------------------------------------------------------
@@ -436,8 +444,8 @@ static void ImGui_ImplWGPU_SetupRenderState(ImDrawData* draw_data, WGPURenderPas
     }
 
     // Setup viewport
-    int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
-    int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
+    int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x + 0.5f);
+    int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y + 0.5f);
     wgpuRenderPassEncoderSetViewport(ctx, 0, 0, (float)fb_width, (float)fb_height, 0, 1);
 
     // Bind shader and vertex buffers
@@ -460,8 +468,8 @@ static void ImGui_ImplWGPU_DrawCallback_SetSamplerNearest(const ImDrawList*, con
 void ImGui_ImplWGPU_RenderDrawData(ImDrawData* draw_data, WGPURenderPassEncoder pass_encoder)
 {
     // Avoid rendering when minimized
-    int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
-    int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
+    int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x + 0.5f);
+    int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y + 0.5f);
     if (fb_width <= 0 || fb_height <= 0 || draw_data->CmdLists.Size == 0)
         return;
 

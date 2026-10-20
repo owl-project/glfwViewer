@@ -15,6 +15,7 @@
 //  [X] Renderer: Texture updates support for dynamic font atlas (ImGuiBackendFlags_RendererHasTextures).
 //  [X] Renderer: Expose selected render state for draw callbacks to use. Access in '(ImGui_ImplXXXX_RenderState*)GetPlatformIO().Renderer_RenderState'.
 // Missing features or Issues:
+//  [ ] Renderer: Multi-viewport support (multiple windows).
 //  [ ] Renderer: Missing support for DrawCallback_SetSamplerLinear, DrawCallback_SetSamplerNearest callbacks: SDLRenderer2 does not support changing SDL_SCALE_MODE while rendering.
 
 // You can use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
@@ -55,7 +56,8 @@
 #endif
 
 // SDL
-#include <SDL.h>
+#include <SDL_render.h>
+#include <SDL_version.h>
 #if !SDL_VERSION_ATLEAST(2,0,17)
 #error This backend requires SDL 2.0.17+ because of SDL_RenderGeometry() function
 #endif
@@ -73,6 +75,11 @@ struct ImGui_ImplSDLRenderer2_Data
 static ImGui_ImplSDLRenderer2_Data* ImGui_ImplSDLRenderer2_GetBackendData()
 {
     return ImGui::GetCurrentContext() ? (ImGui_ImplSDLRenderer2_Data*)ImGui::GetIO().BackendRendererUserData : nullptr;
+}
+
+ImGui_ImplSDLRenderer2_RenderState* ImGui_ImplSDLRenderer2_GetRenderState()
+{
+    return (ImGui_ImplSDLRenderer2_RenderState*)ImGui::GetPlatformIO().Renderer_RenderState;
 }
 
 // Functions

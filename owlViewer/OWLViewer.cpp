@@ -20,6 +20,7 @@
 #include "FlyMode.h"
 // #include "owl/helper/cuda.h"
 #include <sstream>
+#include "imgui_internal.h"
 
 // eventually to go into 'apps/'
 #define STB_IMAGE_WRITE_IMPLEMENTATION 1
@@ -33,6 +34,14 @@
 namespace owl {
   namespace viewer {
 
+    inline vec2f cvt(ImVec2 v)
+    { return { v.x,v.y }; }
+    inline ImVec2 cvt(vec2f v)
+    { return { v.x,v.y }; }
+    ImGuiContext *mwImguiContext = 0;      
+    GLFWwindow *mwHandle = 0;
+    float main_scale;
+    
     inline const char* getGLErrorString( GLenum error )
     {
       switch( error ) {
@@ -179,8 +188,9 @@ namespace owl {
 
     void OWLViewer::resize(const vec2i &newSize)
     {
+      PING; PRINT(newSize);
       glfwMakeContextCurrent(handle);
-      glfwFocusWindow(handle);
+      // glfwFocusWindow(handle);
       if (fbPointer) {
 // #if FORCE_HOST_PINNED_MEMORY
 //         cudaFreeHost(fbPointer);
@@ -215,39 +225,6 @@ namespace owl {
                             0, GL_RGBA,
                             GL_UNSIGNED_BYTE, nullptr));
 
-      // We need to re-register when resizing the texture
-      // cudaError_t rc = cudaGraphicsGLRegisterImage
-	
-      //   (&cuDisplayTexture, fbTexture, GL_TEXTURE_2D, 0);
-
-      // if (firstResize || !firstResize && resourceSharingSuccessful) {
-      // #if OWL_FORCE_SLOW_DISPLAY
-      //       // don't use PBO for now, it only creates troubles when running
-      //       // on machines with more than one GPU (like laptops with
-      //       // built-in graphics and real GPU :-/
-      //       bool forceSlowDisplay = true;
-      // // # pragma message("forcing slow display in owl viewer!")
-      // #else
-      //       bool forceSlowDisplay = false;
-      // #endif
-      //       if (rc != cudaSuccess || forceSlowDisplay) {
-      //         // std::cout << OWL_TERMINAL_RED
-      //         //           << "Warning: Could not do CUDA graphics resource sharing "
-      //         //           << "for the display buffer texture ("
-      //         //           << cudaGetErrorString(cudaGetLastError())
-      //         //           << ")... falling back to slower path"
-      //         //           << OWL_TERMINAL_DEFAULT
-      //         //           << std::endl;
-      //         resourceSharingSuccessful = false;
-      //         if (cuDisplayTexture) {
-      //           cudaGraphicsUnregisterResource(cuDisplayTexture);
-      //           cuDisplayTexture = 0;
-      //         }
-      //         // 'eat' the error we just found - we're not going to use that texture
-      //         cudaGetLastError();
-      //       } else {
-      //         resourceSharingSuccessful = true;
-      //       }
       setAspect(fbSize.x/float(fbSize.y));
     }
 
@@ -256,16 +233,14 @@ namespace owl {
       is */
     void OWLViewer::draw()
     {
-      glfwMakeContextCurrent(handle);
+      if (fbSize.x == 0) return;
+      
       glEnable(GL_TEXTURE_2D);
       GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
-      // cudaDeviceSynchronize();
       GL_CHECK(glTexSubImage2D(GL_TEXTURE_2D,0,
 			       0,0,
 			       fbSize.x, fbSize.y,
 			       GL_RGBA, GL_UNSIGNED_BYTE, fbPointer));
-
-      // cudaDeviceSynchronize();
 
       glDisable(GL_LIGHTING);
       glColor3f(1, 1, 1);
@@ -344,14 +319,15 @@ namespace owl {
     void OWLViewer::mouseMotion(const vec2i &newMousePosition)
     {
       if (lastMousePosition != vec2i(-1)) {
-        if (leftButton.isPressed && leftButton.ctrlWhenPressed)
+        if (leftButton.isPressed && leftButton.ctrlWhenPressed){
           mouseDragCenter(newMousePosition,newMousePosition-lastMousePosition);
-        else if (leftButton.isPressed)
+        } else if (leftButton.isPressed){
           mouseDragLeft  (newMousePosition,newMousePosition-lastMousePosition);
-        else if (centerButton.isPressed)
+        } else if (centerButton.isPressed){
           mouseDragCenter(newMousePosition,newMousePosition-lastMousePosition);
-        else if (rightButton.isPressed)
+        } else if (rightButton.isPressed) {
           mouseDragRight (newMousePosition,newMousePosition-lastMousePosition);
+        }
       }
       lastMousePosition = newMousePosition;
     }
@@ -424,18 +400,23 @@ namespace owl {
       glfwSetWindowTitle(handle,s.c_str());
     }
 
+
+
+
+    
     OWLViewer::OWLViewer(const std::string &title,
                          const vec2i &initWindowSize,
                          bool visible, bool enableVsync)
     {
       glfwSetErrorCallback(glfw_error_callback);
-
+      
       initGLFW();
 
       glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
       glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
       glfwWindowHint(GLFW_VISIBLE, visible);
-      glfwWindowHint(GLFW_FOCUSED, GL_TRUE);
+      glfwWindowHint(GLFW_FOCUSED, GL_FALSE);
+      // glfwWindowHint(GLFW_FOCUSED, GL_TRUE);
  
       // Select GL version + let the backend select a GLSL version
       const char* glsl_version = nullptr;
@@ -462,27 +443,73 @@ namespace owl {
       //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
       //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
+      glfwSwapInterval(0);
 
-      // Create window with graphics context
-      float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor()); // Valid on GLFW 3.3+ only
+
+
+      
+
+
+
+
+
+
+
+
+
+
+
+      PING;
+
+
+
+
+      PING;
+
+
 
       handle = glfwCreateWindow(initWindowSize.x, initWindowSize.y,
                                 title.c_str(), NULL, NULL);
+      
       if (!handle) {
         glfwTerminate();
         exit(EXIT_FAILURE);
       }
-
+      mwHandle = handle;
       glfwSetWindowUserPointer(handle, this);
       glfwMakeContextCurrent(handle);
       glfwSwapInterval( (enableVsync) ? 1 : 0 );
 
-      // Setup Dear ImGui context
+      PING;
+
+      // Create window with graphics context
+      main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor()); // Valid on GLFW 3.3+ only
+
+
       IMGUI_CHECKVERSION();
-      ImGui::CreateContext();
+
+      PING;
+      mwImguiContext = ImGui::CreateContext();
+      ImGui::SetCurrentContext(mwImguiContext);
+      ImGui::GetIO().IniFilename = nullptr;
+      
+      PING;
+      PING;
+      ImGui_ImplGlfw_InitForOpenGL(handle, true); 
+      PING;
+      ImGui_ImplOpenGL3_Init();
+      PING;
+      
+      
+      // ImGui::CreateContext();
       ImGuiIO& io = ImGui::GetIO(); (void)io;
       io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
       io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+      io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+      io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         
+      io.ConfigViewportsNoDecoration = false;
+      io.ConfigViewportsNoAutoMerge = true;
+
 
       // Setup Dear ImGui style
       ImGui::StyleColorsDark();
@@ -490,27 +517,45 @@ namespace owl {
 
       // Setup scaling
       ImGuiStyle& style = ImGui::GetStyle();
-      style.ScaleAllSizes(main_scale);        // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
-      style.FontScaleDpi = main_scale;        // Set initial font scale. (in docking branch: using io.ConfigDpiScaleFonts=true automatically overrides this for every window depending on the current monitor)
+      style.ScaleAllSizes(main_scale);        // Bake a fixed style
+                                              // scale. (until we have
+                                              // a solution for
+                                              // dynamic style
+                                              // scaling, changing
+                                              // this requires
+                                              // resetting Style +
+                                              // calling this again)
+      style.FontScaleDpi = main_scale;        // Set initial font
+                                              // scale. (in docking
+                                              // branch: using
+                                              // io.ConfigDpiScaleFonts=true
+                                              // automatically
+                                              // overrides this for
+                                              // every window
+                                              // depending on the
+                                              // current monitor)
 
-      // Setup Platform/Renderer backends
-      ImGui_ImplGlfw_InitForOpenGL(handle, false);
-      // ImGui_ImplGlfw_InitForOpenGL(window, true);
-      // #ifdef __EMSCRIPTEN__
-      //   ImGui_ImplGlfw_InstallEmscriptenCallbacks(window, "#canvas");
-      // #endif
-      ImGui_ImplOpenGL3_Init(glsl_version);
+
+
+
+
+
+
+
+
 
       
+      // glfwSetWindowPos(mainwindow, posx, posy);
+      PING;
     }
 
 
     /*! callback for a window resizing event */
     static void glfwindow_reshape_cb(GLFWwindow* window, int width, int height )
     {
-      OWLViewer *gw = static_cast<OWLViewer*>(glfwGetWindowUserPointer(window));
-      assert(gw);
-      gw->resize(vec2i(width,height));
+      // OWLViewer *gw = static_cast<OWLViewer*>(glfwGetWindowUserPointer(window));
+      // assert(gw);
+      // gw->resize(vec2i(width,height));
     }
 
     /*! callback for a key press */
@@ -541,7 +586,6 @@ namespace owl {
     static void glfwindow_mouseMotion_cb(GLFWwindow *window, double x, double y)
     {
       OWLViewer *gw = static_cast<OWLViewer*>(glfwGetWindowUserPointer(window));
-      assert(gw);
       gw->mouseMotion(vec2i((int)x, (int)y));
     }
 
@@ -553,15 +597,7 @@ namespace owl {
     {
       OWLViewer *gw = static_cast<OWLViewer*>(glfwGetWindowUserPointer(window));
       assert(gw);
-      
-      ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
-      
-      // Check if ImGui wants to capture the mouse
-      ImGuiIO& io = ImGui::GetIO();
-      if (io.WantCaptureMouse) {
-        return; // ImGui handled the input; do not let application logic run
-      }
-  
+
       gw->mouseButton(button,action,mods);
     }
 
@@ -633,7 +669,9 @@ namespace owl {
 
     void OWLViewer::showAndRun(std::function<bool()> keepgoing)
     {
+      PING;
       int width, height;
+      glfwMakeContextCurrent(handle);
       glfwGetFramebufferSize(handle, &width, &height);
       resize(vec2i(width,height));
       glfwSetFramebufferSizeCallback(handle, glfwindow_reshape_cb);
@@ -641,28 +679,213 @@ namespace owl {
       glfwSetKeyCallback(handle, glfwindow_key_cb);
       glfwSetCharCallback(handle, glfwindow_char_cb);
       glfwSetCursorPosCallback(handle, glfwindow_mouseMotion_cb);
+ 
+      PING;
+      // glfwShowWindow (mwHandle);
 
-      glfwFocusWindow (handle);
-	
-      while (!glfwWindowShouldClose(handle) && keepgoing()) {
+      
+      glfwMakeContextCurrent(mwHandle);
+      PING;
+      ImGui::SetCurrentContext(mwImguiContext);
+      PING;
+      PRINT(mwImguiContext);
+      PRINT(mwHandle);
+
+      
+      while (!glfwWindowShouldClose(handle)
+             && keepgoing()) {
+
         static double lastCameraUpdate = -1.f;
         if (camera.lastModified != lastCameraUpdate) {
           cameraChanged();
           lastCameraUpdate = camera.lastModified;
         }
+        glfwMakeContextCurrent(mwHandle);
+
+        if (uiTexture == (GLuint)-1) {
+          glGenTextures(1, &uiTexture);
+          glBindTexture(GL_TEXTURE_2D, uiTexture);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        }
+        glBindTexture(GL_TEXTURE_2D, uiTexture);
         render();
+      glTexImage2D(GL_TEXTURE_2D,
+                   0,
+                   GL_RGB8,
+                   fbSize.x,fbSize.y,
+                   0,
+                   GL_RGBA,
+                   GL_UNSIGNED_BYTE,
+                   fbPointer);
+        
+        draw();
 
-        glfwSwapBuffers(handle);
-        glfwPollEvents();
+        // ==================================================================
+        // UI window
+        // ==================================================================
+        // glfwMakeContextCurrent(uiHandle);
+        // /* ui opengl draw*/
+        // {
+        //   int display_w, display_h;
+          
+        //   glfwGetFramebufferSize(uiHandle, &display_w, &display_h);
+        //   glViewport(0, 0, display_w, display_h);
+          
+        //   glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
+        //   glClear(GL_COLOR_BUFFER_BIT);
+        // }          
 
-        // Start the Dear ImGui frame
+
+  
+        ImGui::SetCurrentContext(mwImguiContext);
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        runImgui();
+
+
+
+      ImGuiID dockspace_id = ImGui::GetID("My Dockspace");
+      ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+      // Create settings
+      if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
+        {
+          ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+          ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+          ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+          ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+          ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+          ImGuiID dock_id_main = dockspace_id;
+
+          // ImGuiID dock_id_top = 0;
+          // ImGui::DockBuilderSplitNode(dock_id_main, ImGuiDir_Up, 0.f,//0.50f,
+          //                             &dock_id_top, &dock_id_main);
+      
+          ImGuiID dock_id_left = 0;
+          ImGui::DockBuilderSplitNode(dock_id_main, ImGuiDir_Left, 0.20f,
+                                      &dock_id_left, &dock_id_main);
+      
+          ImGui::DockBuilderDockWindow("MainCanvas", dock_id_main);
+          ImGui::DockBuilderDockWindow("Properties", dock_id_left);
+          // ImGui::DockBuilderDockWindow("MenuBar", dock_id_top);
+          ImGui::DockBuilderFinish(dockspace_id);
+      
+          ImGui::PopStyleVar(3);
+        }
+      
+        
+//         ImGui::SetNextWindowPos(ImVec2(0, 0));
+//         ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDocking
+//           | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
+//           | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+//           | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+//         ImGuiViewport *viewport = ImGui::GetMainViewport();
+//         ImGui::SetNextWindowPos(viewport->WorkPos);
+//         ImGui::SetNextWindowSize(viewport->WorkSize);
+//         ImGui::SetNextWindowViewport(viewport->ID);
+
+//         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+//         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+//         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+//         ImGui::Begin("UIDockSpace", nullptr, windowFlags);
+//         ImGui::PopStyleVar(3);
+//         ImGuiID dockspaceId = ImGui::GetID("UIDockSpaceID");
+//         ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+
+// #if 0
+//         ImGui::Begin("UIWindow");
+//         ImGui::Text("ImGUI + OpenGL Demo ver 0.0.1");
+//         ImGui::Button("About window button");
+//         ImGui::End();
+// #else   
+//         runImgui();
+//         ImGui::SetWindowFocus();
+// #endif
+//         ImGui::End();
+
+
+
+
+        ImGui::DockSpaceOverViewport(dockspace_id, viewport, ImGuiDockNodeFlags_PassthruCentralNode);
+
+        // Submit windows
+        ImGui::Begin("Properties");
+        ImGui::Text("Left GUI");
+        ImGui::Button("Main window button");
+        ImGui::End();
+
+
+        ImGui::Begin("MainCanvas");
+        vec2f canvas_size = cvt(ImGui::GetWindowSize());
+        // vec2f canvas_size = cvt(ImGui::GetContentRegionAvail());
+        vec2f canvas_pos = cvt(ImGui::GetCursorScreenPos());
+#if 0
+        vec2f fbScale = 1.f;
+#else
+        ImGuiIO& io = ImGui::GetIO(); 
+        vec2f fbScale = cvt(io.DisplayFramebufferScale);
+#endif
+        vec2i drawAreaSize = vec2i(canvas_size*fbScale);
+
+        if (uiTexture != (GLuint)-1) {
+          ImDrawList *draw_list = ImGui::GetWindowDrawList();
+          draw_list->AddImage(reinterpret_cast<void *>(uiTexture),
+                              cvt(canvas_pos),
+                              cvt(canvas_pos + canvas_size),
+                              ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        }
+        if (drawAreaSize != fbSize) {
+          resize(drawAreaSize);
+        }
+        // static vec2f last_size = vec2f(-1);
+        // if (canvas_size != last_size) {
+        //   PRINT(canvas_pos);
+        //   PRINT(canvas_size);
+        //   PRINT(canvas_size*fbScale);
+        //   // PRINT(canvas_size*main_scale);
+        //   // PRINT(cvt(io.DisplayFramebufferScale));
+  
+
+        //   last_size = canvas_size;
+        // }
+        ImGui::End();
+
+      
+        // ImGui::Render();
+        // ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        // // if this swapinterval is not set here, then glfwSwapBuffers
+        // // can get stuck if the window is occluded by another, even
+        // // the main window.
+        // glfwSwapInterval(0);
+        // glfwSwapBuffers(uiHandle);
+
+        // ==================================================================
+        // canvas window
+        // ==================================================================
+        
+        // ImGui::SetCurrentContext(mwImguiContext); 
+        // ImGui_ImplOpenGL3_NewFrame();
+        // ImGui_ImplGlfw_NewFrame();
+        // ImGui::SetNextWindowPos(ImVec2(0, 0));
+
+        // ImGui::NewFrame();
+        // // ImGui::Begin("main window");
+        // // ImGui::Text("main window");
+        // // ImGui::End();
         ImGui::Render();
-        draw();
+
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        glfwSwapInterval(0);
+        glfwSwapBuffers(mwHandle);
+        // ==================================================================        
+
+        glfwPollEvents();
       }
 
       ImGui_ImplOpenGL3_Shutdown();
