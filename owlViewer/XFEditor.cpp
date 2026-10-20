@@ -217,13 +217,15 @@ namespace owl {
                          ImColor(180, 180, 180, 255));
       ImGui::InvisibleButton("tfn_canvas", cvt(canvas_size));
     
-      static bool clicked_on_item = false;
+      // static
+        bool clicked_on_item = false;
       if (!io.MouseDown[0] && !io.MouseDown[1]) {
         clicked_on_item = false;
       }
       if (ImGui::IsItemHovered() && (io.MouseDown[0] || io.MouseDown[1])) {
         clicked_on_item = true;
       }
+      PRINT((int)clicked_on_item);
 
       ImVec2 bbmin = ImGui::GetItemRectMin();
       ImVec2 bbmax = ImGui::GetItemRectMax();

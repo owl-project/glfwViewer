@@ -675,10 +675,10 @@ namespace owl {
       glfwGetFramebufferSize(handle, &width, &height);
       resize(vec2i(width,height));
       glfwSetFramebufferSizeCallback(handle, glfwindow_reshape_cb);
-      glfwSetMouseButtonCallback(handle, glfwindow_mouseButton_cb);
-      glfwSetKeyCallback(handle, glfwindow_key_cb);
-      glfwSetCharCallback(handle, glfwindow_char_cb);
-      glfwSetCursorPosCallback(handle, glfwindow_mouseMotion_cb);
+      // glfwSetMouseButtonCallback(handle, glfwindow_mouseButton_cb);
+      // glfwSetKeyCallback(handle, glfwindow_key_cb);
+      // glfwSetCharCallback(handle, glfwindow_char_cb);
+      // glfwSetCursorPosCallback(handle, glfwindow_mouseMotion_cb);
  
       PING;
       // glfwShowWindow (mwHandle);
@@ -823,8 +823,9 @@ namespace owl {
 
         // Submit windows
         ImGui::Begin("Properties");//,&is_open,ImGuiWindowFlags_NoTabBar);
-        ImGui::Text("Left GUI");
-        ImGui::Button("Main window button");
+        // ImGui::Text("Left GUI");
+        // ImGui::Button("Main window button");
+        runImgui();
         ImGui::End();
 
 
