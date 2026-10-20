@@ -745,6 +745,9 @@ namespace owl {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+          ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+          ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+          ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
 
       ImGuiID dockspace_id = ImGui::GetID("My Dockspace");
@@ -812,16 +815,21 @@ namespace owl {
 
 
 
-        ImGui::DockSpaceOverViewport(dockspace_id, viewport, ImGuiDockNodeFlags_PassthruCentralNode);
+        ImGui::DockSpaceOverViewport(dockspace_id, viewport,
+                                     ImGuiDockNodeFlags_PassthruCentralNode
+                                     | ImGuiDockNodeFlags_NoTabBar);
+        
+        // bool is_open = true;
 
         // Submit windows
-        ImGui::Begin("Properties");
+        ImGui::Begin("Properties");//,&is_open,ImGuiWindowFlags_NoTabBar);
         ImGui::Text("Left GUI");
         ImGui::Button("Main window button");
         ImGui::End();
 
 
-        ImGui::Begin("MainCanvas");
+        ImGui::Begin("MainCanvas");//,&is_open,ImGuiWindowFlags_NoTitleBar);
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
         vec2f canvas_size = cvt(ImGui::GetWindowSize());
         // vec2f canvas_size = cvt(ImGui::GetContentRegionAvail());
         vec2f canvas_pos = cvt(ImGui::GetCursorScreenPos());
@@ -878,6 +886,7 @@ namespace owl {
         // // ImGui::Begin("main window");
         // // ImGui::Text("main window");
         // // ImGui::End();
+          ImGui::PopStyleVar(3);
         ImGui::Render();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
