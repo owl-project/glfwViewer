@@ -177,36 +177,20 @@ namespace owl {
     // actual viewerwidget class
     // ==================================================================
 
-    void OWLViewer::resize(const vec2i &newSize)
+
+    void OWLViewer::resize(const vec2i &newSize, uint32_t *new_fbPointer)
     {
       glfwMakeContextCurrent(handle);
       glfwFocusWindow(handle);
-      if (fbPointer) {
-// #if FORCE_HOST_PINNED_MEMORY
-//         cudaFreeHost(fbPointer);
-// #else
-//         cudaFree(fbPointer);
-// #endif
+      if (fbPointerIsMine) { 
         delete[] fbPointer;
         fbPointer = 0;
+        fbPointerIsMine = false;
       }
-      fbPointer = new uint32_t[newSize.x*newSize.y];
-// #if FORCE_HOST_PINNED_MEMORY
-//       cudaMallocHost(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
-// #else
-//       cudaMallocManaged(&fbPointer,newSize.x*newSize.y*sizeof(uint32_t));
-// #endif
-//       cudaDeviceSynchronize();
-
+      fbPointer = new_fbPointer;
       fbSize = newSize;
       if (fbTexture == 0) {
         GL_CHECK(glGenTextures(1, &fbTexture));
-	// }
-	// else {
-	//   if (cuDisplayTexture) {
-	//     cudaGraphicsUnregisterResource(cuDisplayTexture);
-	//     cuDisplayTexture = 0;
-	//   }
       }
 
       GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
@@ -214,40 +198,30 @@ namespace owl {
                             newSize.x, newSize.y,
                             0, GL_RGBA,
                             GL_UNSIGNED_BYTE, nullptr));
+      setAspect(fbSize.x/float(fbSize.y));
+    }
+    
+    void OWLViewer::resize(const vec2i &newSize)
+    {
+      glfwMakeContextCurrent(handle);
+      glfwFocusWindow(handle);
+      if (fbPointerIsMine) { 
+        delete[] fbPointer;
+        fbPointer = 0;
+        fbPointerIsMine = false;
+      }
+      fbPointer = new uint32_t[newSize.x*newSize.y];
+      fbPointerIsMine = true;
+      fbSize = newSize;
+      if (fbTexture == 0) {
+        GL_CHECK(glGenTextures(1, &fbTexture));
+      }
 
-      // We need to re-register when resizing the texture
-      // cudaError_t rc = cudaGraphicsGLRegisterImage
-	
-      //   (&cuDisplayTexture, fbTexture, GL_TEXTURE_2D, 0);
-
-      // if (firstResize || !firstResize && resourceSharingSuccessful) {
-      // #if OWL_FORCE_SLOW_DISPLAY
-      //       // don't use PBO for now, it only creates troubles when running
-      //       // on machines with more than one GPU (like laptops with
-      //       // built-in graphics and real GPU :-/
-      //       bool forceSlowDisplay = true;
-      // // # pragma message("forcing slow display in owl viewer!")
-      // #else
-      //       bool forceSlowDisplay = false;
-      // #endif
-      //       if (rc != cudaSuccess || forceSlowDisplay) {
-      //         // std::cout << OWL_TERMINAL_RED
-      //         //           << "Warning: Could not do CUDA graphics resource sharing "
-      //         //           << "for the display buffer texture ("
-      //         //           << cudaGetErrorString(cudaGetLastError())
-      //         //           << ")... falling back to slower path"
-      //         //           << OWL_TERMINAL_DEFAULT
-      //         //           << std::endl;
-      //         resourceSharingSuccessful = false;
-      //         if (cuDisplayTexture) {
-      //           cudaGraphicsUnregisterResource(cuDisplayTexture);
-      //           cuDisplayTexture = 0;
-      //         }
-      //         // 'eat' the error we just found - we're not going to use that texture
-      //         cudaGetLastError();
-      //       } else {
-      //         resourceSharingSuccessful = true;
-      //       }
+      GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
+      GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                            newSize.x, newSize.y,
+                            0, GL_RGBA,
+                            GL_UNSIGNED_BYTE, nullptr));
       setAspect(fbSize.x/float(fbSize.y));
     }
 

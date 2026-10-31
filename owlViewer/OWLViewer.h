@@ -104,6 +104,7 @@ namespace owl {
       
       /*! window notifies us that we got resized */     
       virtual void resize(const vec2i &newSize);
+      virtual void resize(const vec2i &newSize, uint32_t *fbPointer);
 
       void setTitle(const std::string &s);
 
@@ -255,6 +256,7 @@ namespace owl {
       GLuint   fbTexture  {0};
       // cudaGraphicsResource_t cuDisplayTexture { 0 };
       uint32_t *fbPointer { nullptr };
+      bool      fbPointerIsMine = false;
       
       /*! the glfw window handle */
       GLFWwindow *handle { nullptr };
