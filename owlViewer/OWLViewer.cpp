@@ -178,28 +178,31 @@ namespace owl {
     // ==================================================================
 
 
-    void OWLViewer::resize(const vec2i &newSize, uint32_t *new_fbPointer)
-    {
-      glfwMakeContextCurrent(handle);
-      glfwFocusWindow(handle);
-      if (fbPointerIsMine) { 
-        delete[] fbPointer;
-        fbPointer = 0;
-        fbPointerIsMine = false;
-      }
-      fbPointer = new_fbPointer;
-      fbSize = newSize;
-      if (fbTexture == 0) {
-        GL_CHECK(glGenTextures(1, &fbTexture));
-      }
+//     void OWLViewer::resize(const vec2i &newSize, uint32_t *new_fbPointer)
+//     {
+//       glfwMakeContextCurrent(handle);
+//       glfwFocusWindow(handle);
+//       if (fbPointerIsMine) { 
+//         delete[] fbPointer;
+//         fbPointer = 0;
+//         fbPointerIsMine = false;
+//       }
+//       fbPointer = new_fbPointer;
+//       fbSize = newSize;
+// #if 0
+//       // we now create/resize the textre on 'draw'
+//       if (fbTexture == 0) {
+//         GL_CHECK(glGenTextures(1, &fbTexture));
+//       }
 
-      GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
-      GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                            newSize.x, newSize.y,
-                            0, GL_RGBA,
-                            GL_UNSIGNED_BYTE, nullptr));
-      setAspect(fbSize.x/float(fbSize.y));
-    }
+//       GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
+//       GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+//                             newSize.x, newSize.y,
+//                             0, GL_RGBA,
+//                             GL_UNSIGNED_BYTE, nullptr));
+// #endif
+//       setAspect(fbSize.x/float(fbSize.y));
+//     }
     
     void OWLViewer::resize(const vec2i &newSize)
     {
@@ -213,6 +216,8 @@ namespace owl {
       fbPointer = new uint32_t[newSize.x*newSize.y];
       fbPointerIsMine = true;
       fbSize = newSize;
+#if 0
+      // we now create/resize the textre on 'draw'
       if (fbTexture == 0) {
         GL_CHECK(glGenTextures(1, &fbTexture));
       }
@@ -222,6 +227,7 @@ namespace owl {
                             newSize.x, newSize.y,
                             0, GL_RGBA,
                             GL_UNSIGNED_BYTE, nullptr));
+#endif
       setAspect(fbSize.x/float(fbSize.y));
     }
 
@@ -232,13 +238,30 @@ namespace owl {
     {
       glfwMakeContextCurrent(handle);
       glEnable(GL_TEXTURE_2D);
+
+#if 1
+      if (fbTexture == 0) {
+        GL_CHECK(glGenTextures(1, &fbTexture));
+      }
+
+      GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
+      if (fbSize != fbTextureSize) {
+        GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                              fbSize.x, fbSize.y,
+                              0, GL_RGBA,
+                              GL_UNSIGNED_BYTE, nullptr));
+        fbTextureSize = fbSize;
+      }
+#endif
+
+      
       GL_CHECK(glBindTexture(GL_TEXTURE_2D, fbTexture));
       // cudaDeviceSynchronize();
       GL_CHECK(glTexSubImage2D(GL_TEXTURE_2D,0,
 			       0,0,
 			       fbSize.x, fbSize.y,
 			       GL_RGBA, GL_UNSIGNED_BYTE, fbPointer));
-
+#if 0
       // cudaDeviceSynchronize();
 
       glDisable(GL_LIGHTING);
@@ -254,11 +277,25 @@ namespace owl {
 
       glDisable(GL_DEPTH_TEST);
 
-      glViewport(0, 0, fbSize.x, fbSize.y);
+      // PRINT(uiViewport);
+      
+      // if (uiViewport.lower.x != -1)
+      //   glViewport(uiViewport.lower.x, uiViewport.lower.y,
+      //              uiViewport.upper.x, uiViewport.upper.y);
+      // else
+        glViewport(0, 0, fbSize.x, fbSize.y);
 
       glMatrixMode(GL_PROJECTION);
       glLoadIdentity();
-      glOrtho(0.f, (float)fbSize.x, 0.f, (float)fbSize.y, -1.f, 1.f);
+      // if (uiViewport.lower.x != -1)
+      //   glOrtho((float)uiViewport.lower.x,
+      //           (float)uiViewport.upper.x,
+      //           (float)uiViewport.lower.y,
+      //           (float)uiViewport.upper.y,
+      //           -1.f, 1.f);
+      // else
+        glOrtho(0.f, (float)fbSize.x, 0.f, (float)fbSize.y, -1.f, 1.f);
+      
 
       glBegin(GL_QUADS);
       {
@@ -275,6 +312,7 @@ namespace owl {
 	glVertex3f((float)fbSize.x, 0.f, 0.f);
       }
       glEnd();
+#endif
       glFlush();
     }
 
@@ -442,6 +480,9 @@ namespace owl {
 
       handle = glfwCreateWindow(initWindowSize.x, initWindowSize.y,
                                 title.c_str(), NULL, NULL);
+
+      glfwGetWindowContentScale(handle, &uiPixelScale.x, &uiPixelScale.y);
+ 
       if (!handle) {
         glfwTerminate();
         exit(EXIT_FAILURE);
@@ -625,6 +666,7 @@ namespace owl {
           lastCameraUpdate = camera.lastModified;
         }
         render();
+        draw();
 
         glfwSwapBuffers(handle);
         glfwPollEvents();
@@ -635,7 +677,6 @@ namespace owl {
         ImGui::NewFrame();
         runImgui();
         ImGui::Render();
-        draw();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
       }
 

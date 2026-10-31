@@ -35,6 +35,8 @@
 
 #include <functional>
 
+#define OWLVIEWER_HAVE_DEPTH 1
+
 namespace owl {
   namespace viewer {
 
@@ -104,7 +106,7 @@ namespace owl {
       
       /*! window notifies us that we got resized */     
       virtual void resize(const vec2i &newSize);
-      virtual void resize(const vec2i &newSize, uint32_t *fbPointer);
+      // virtual void resize(const vec2i &newSize, uint32_t *fbPointer);
 
       void setTitle(const std::string &s);
 
@@ -242,6 +244,13 @@ namespace owl {
         glfwGetCursorPos(handle,&x,&y);
         return vec2i((int)x, (int)y);
       }
+
+      /*! stores the window manager's automatic display/pixel
+          scale. on retina distplays glfw may sometimes adapt some
+          automatic scaling of UI elements that is independent of the
+          acutal number of pixels in the phyiscal screen */
+      vec2f uiPixelScale { 1.f,1.f };
+      // box2i uiViewport { { -1,-1}, {-1,-1 }};
     private:
       friend struct CameraManipulator;
       friend struct CameraInspectMode;
@@ -251,8 +260,8 @@ namespace owl {
 
     
       
-      vec2i    fbSize { 0 };
-
+      vec2i    fbSize { 0,0 };
+      vec2i    fbTextureSize {0,0};
       GLuint   fbTexture  {0};
       // cudaGraphicsResource_t cuDisplayTexture { 0 };
       uint32_t *fbPointer { nullptr };
